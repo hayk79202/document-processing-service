@@ -17,7 +17,7 @@ Open `http://127.0.0.1:8000/docs` for the interactive API reference. Upload a UT
 curl -F "file=@examples/sample.txt" http://127.0.0.1:8000/documents
 ```
 
-Run `python -m unittest discover -s tests -v` for the core service checks. GitHub Actions runs them and builds the Docker image on each push.
+Install `requirements-dev.txt` and run `python -m unittest discover -s tests -v` for storage, processing, and HTTP endpoint checks. GitHub Actions runs them and builds the Docker image on each push.
 
 ## API
 
