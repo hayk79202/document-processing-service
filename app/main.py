@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from hashlib import sha256
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 
 from app import storage
 
@@ -51,6 +51,11 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
     storage.create_job(job_id)
     background_tasks.add_task(process_document, job_id, content)
     return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/documents")
+def list_documents(limit: int = Query(default=20, ge=1, le=100)) -> list[dict]:
+    return storage.list_jobs(limit)
 
 
 @app.get("/documents/{job_id}")

@@ -27,6 +27,10 @@ def init_db() -> None:
                     error TEXT
                 )
             """)
+            connection.execute(
+                "UPDATE jobs SET status = 'failed', error = 'interrupted by server restart' "
+                "WHERE status = 'queued'"
+            )
 
 
 def create_job(job_id: str) -> None:
@@ -48,14 +52,24 @@ def finish_job(job_id: str, result: dict | None = None, error: str | None = None
             )
 
 
-def get_job(job_id: str) -> dict | None:
-    with closing(connect()) as connection:
-        row = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
-    if row is None:
-        return None
+def serialize_job(row: sqlite3.Row) -> dict:
     job = {"job_id": row["id"], "status": row["status"], "created_at": row["created_at"]}
     if row["result_json"] is not None:
         job["result"] = json.loads(row["result_json"])
     if row["error"] is not None:
         job["error"] = row["error"]
     return job
+
+
+def get_job(job_id: str) -> dict | None:
+    with closing(connect()) as connection:
+        row = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    return serialize_job(row) if row is not None else None
+
+
+def list_jobs(limit: int = 20) -> list[dict]:
+    with closing(connect()) as connection:
+        rows = connection.execute(
+            "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [serialize_job(row) for row in rows]

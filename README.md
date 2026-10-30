@@ -23,9 +23,10 @@ Run `python -m unittest discover -s tests -v` for the core service checks. GitHu
 | --- | --- | --- |
 | `GET` | `/health` | Service status |
 | `POST` | `/documents` | `202` and a job ID |
+| `GET` | `/documents?limit=20` | Recent job statuses (up to 100) |
 | `GET` | `/documents/{job_id}` | Status and result when complete |
 
-The upload limit is 2 MiB. The service accepts UTF-8 `.txt` files only. Job status survives a restart in `data/jobs.sqlite3`; uploaded content is not stored. A job interrupted by a server restart can remain `queued`, because workers run in the web process. Run one server process for this version.
+The upload limit is 2 MiB. The service accepts UTF-8 `.txt` files only. Job status survives a restart in `data/jobs.sqlite3`; uploaded content is not stored. On restart, unfinished jobs are marked `failed` because their in-process workers cannot resume. Run one server process for this version.
 
 ## Design direction
 

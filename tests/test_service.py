@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import BackgroundTasks, HTTPException, UploadFile
 
 from app import storage
-from app.main import get_document, upload_document
+from app.main import get_document, list_documents, upload_document
 
 
 class DocumentServiceTests(unittest.TestCase):
@@ -40,6 +40,14 @@ class DocumentServiceTests(unittest.TestCase):
         self.assertEqual(job["result"]["words"], 2)
         self.assertEqual(job["result"]["sha256"], sha256(b"hello world").hexdigest())
         self.assertEqual(storage.get_job(job["job_id"]), job)
+        self.assertEqual(list_documents(limit=1)[0]["job_id"], job["job_id"])
+
+    def test_restart_marks_interrupted_job_failed(self):
+        storage.create_job("interrupted")
+        storage.init_db()
+        job = storage.get_job("interrupted")
+        self.assertEqual(job["status"], "failed")
+        self.assertIn("restart", job["error"])
 
     def test_rejects_non_text_file(self):
         upload = UploadFile(file=io.BytesIO(b"binary"), filename="photo.png")
