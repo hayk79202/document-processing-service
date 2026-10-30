@@ -1,13 +1,20 @@
-"""Prototype document upload API with in-process job tracking."""
+"""Document upload API with SQLite-backed job status."""
+from contextlib import asynccontextmanager
 from hashlib import sha256
-from threading import Lock
 from uuid import uuid4
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 
-app = FastAPI(title="Document Processing Service", version="0.1.0")
-jobs: dict[str, dict] = {}
-jobs_lock = Lock()
+from app import storage
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    storage.init_db()
+    yield
+
+
+app = FastAPI(title="Document Processing Service", version="0.2.0", lifespan=lifespan)
 MAX_BYTES = 2 * 1024 * 1024
 
 
@@ -19,11 +26,9 @@ def process_document(job_id: str, content: bytes) -> None:
             "words": len(text.split()),
             "sha256": sha256(content).hexdigest(),
         }
-        with jobs_lock:
-            jobs[job_id] = {"status": "completed", "result": result}
+        storage.finish_job(job_id, result=result)
     except Exception as exc:
-        with jobs_lock:
-            jobs[job_id] = {"status": "failed", "error": str(exc)}
+        storage.finish_job(job_id, error=str(exc))
 
 
 @app.get("/health")
@@ -43,16 +48,14 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
     except UnicodeDecodeError:
         raise HTTPException(status_code=422, detail="File must be UTF-8 text") from None
     job_id = str(uuid4())
-    with jobs_lock:
-        jobs[job_id] = {"status": "queued"}
+    storage.create_job(job_id)
     background_tasks.add_task(process_document, job_id, content)
     return {"job_id": job_id, "status": "queued"}
 
 
 @app.get("/documents/{job_id}")
 def get_document(job_id: str) -> dict:
-    with jobs_lock:
-        job = jobs.get(job_id)
-        if job is None:
-            raise HTTPException(status_code=404, detail="Job not found")
-        return {"job_id": job_id, **job}
+    job = storage.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
