@@ -1,0 +1,2 @@
+This small document demonstrates the upload endpoint.
+The service counts its words and returns a SHA-256 digest.
